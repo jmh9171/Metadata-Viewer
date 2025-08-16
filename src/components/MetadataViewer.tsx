@@ -1,9 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import EXIFReader from "exifreader";
+import InteractiveMap from "./InteractiveMap";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Metadata {
   [key: string]: any;
+}
+
+interface GPSData {
+  latitude: number;
+  longitude: number;
+  altitude?: number;
 }
 
 interface Category {
@@ -20,6 +33,8 @@ const MetadataViewer: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null
   );
+  const [gpsData, setGpsData] = useState<GPSData | null>(null);
+  const [showMapDialog, setShowMapDialog] = useState<boolean>(false);
 
   const fileBaseInfo = (file: File) => ({
     name: file.name,
@@ -34,6 +49,61 @@ const MetadataViewer: React.FC = () => {
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  const extractGPSData = (tags: any): GPSData | null => {
+    // console.log(tags);
+    try {
+      // Check for GPS coordinates in EXIF data
+      if (tags.GPSLatitude && tags.GPSLongitude) {
+        let latitude = tags.GPSLatitude;
+        let longitude = tags.GPSLongitude;
+
+        // Handle different formats of GPS data
+        if (typeof latitude === "object" && latitude.description) {
+          latitude = parseFloat(latitude.description);
+        }
+        if (typeof longitude === "object" && longitude.description) {
+          longitude = parseFloat(longitude.description) * -1;
+        }
+
+        // Convert to numbers if they're strings
+        latitude = parseFloat(latitude);
+        longitude = parseFloat(longitude);
+
+        // Validate coordinates
+        if (isNaN(latitude) || isNaN(longitude)) {
+          return null;
+        }
+
+        // Check for GPS reference (North/South, East/West)
+        if (tags.GPSLatitudeRef && tags.GPSLatitudeRef.description === "S") {
+          latitude = -latitude;
+        }
+        if (tags.GPSLongitudeRef && tags.GPSLongitudeRef.description === "W") {
+          longitude = -longitude;
+        }
+
+        const gpsData: GPSData = { latitude, longitude };
+
+        // Add altitude if available
+        if (tags.GPSAltitude) {
+          let altitude = tags.GPSAltitude;
+          if (typeof altitude === "object" && altitude.description) {
+            altitude = parseFloat(altitude.description);
+          }
+          if (!isNaN(altitude)) {
+            gpsData.altitude = altitude;
+          }
+        }
+
+        return gpsData;
+      }
+      return null;
+    } catch (error) {
+      console.warn("Error extracting GPS data:", error);
+      return null;
+    }
   };
 
   const formatDate = (dateString: string): string => {
@@ -111,6 +181,12 @@ const MetadataViewer: React.FC = () => {
           const tags = EXIFReader.load(arrayBuffer);
 
           console.log("EXIF data extracted:", tags);
+
+          // Extract GPS data
+          const gps = extractGPSData(tags);
+          if (gps) {
+            setGpsData(gps);
+          }
 
           // Convert EXIFReader tags to a more readable format
           const exifData: Metadata = {};
@@ -197,6 +273,8 @@ const MetadataViewer: React.FC = () => {
     setError(null);
     setMetadata(null);
     setSelectedCategory(null);
+    setGpsData(null);
+    setShowMapDialog(false);
     setIsLoading(true);
 
     try {
@@ -258,16 +336,6 @@ const MetadataViewer: React.FC = () => {
     setSelectedCategory(category);
   };
 
-  const closeDialog = () => {
-    setSelectedCategory(null);
-  };
-
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      closeDialog();
-    }
-  };
-
   const categories = metadata ? categorizeMetadata(metadata) : [];
 
   return (
@@ -294,6 +362,38 @@ const MetadataViewer: React.FC = () => {
         <div className="flex justify-center items-center py-8 text-gray-600 dark:text-gray-300">
           Processing file...
           <div className="ml-2 w-5 h-5 border-2 border-gray-300 border-t-primary-500 rounded-full animate-spin"></div>
+        </div>
+      )}
+
+      {gpsData && (
+        <div className="text-left bg-white dark:bg-gray-800 p-8 rounded-2xl mt-8 border border-gray-200 dark:border-gray-700 shadow-sm animate-slide-in">
+          <h2 className="text-center mb-6 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            📍 Location Data
+          </h2>
+          <div className="mb-6 text-center text-gray-600 dark:text-gray-300">
+            <p className="text-lg">
+              Latitude: {gpsData.latitude.toFixed(6)}°
+              {gpsData.latitude >= 0 ? "N" : "S"}
+            </p>
+            <p className="text-lg">
+              Longitude: {gpsData.longitude.toFixed(6)}°
+              {gpsData.longitude >= 0 ? "E" : "W"}
+            </p>
+            {gpsData.altitude && (
+              <p className="text-lg">
+                Altitude: {gpsData.altitude.toFixed(1)}m
+              </p>
+            )}
+          </div>
+          <div className="text-center">
+            <button
+              onClick={() => setShowMapDialog(true)}
+              className="inline-flex items-center px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+              <span className="mr-2">🗺️</span>
+              View on Map
+            </button>
+          </div>
         </div>
       )}
 
@@ -340,26 +440,17 @@ const MetadataViewer: React.FC = () => {
         </div>
       )}
 
-      {selectedCategory && (
-        <div
-          className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4"
-          onClick={handleOverlayClick}
-        >
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl animate-dialog-slide-in">
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                {selectedCategory.name}
-              </h3>
-              <button
-                className="text-2xl text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 w-10 h-10 flex items-center justify-center"
-                onClick={closeDialog}
-                aria-label="Close dialog"
-              >
-                ×
-              </button>
-            </div>
-            <div className="space-y-4">
-              {Object.entries(selectedCategory.items).map(([key, value]) => {
+      <Dialog
+        open={!!selectedCategory}
+        onOpenChange={() => setSelectedCategory(null)}
+      >
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedCategory?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedCategory?.items &&
+              Object.entries(selectedCategory.items).map(([key, value]) => {
                 const displayValue = formatMetadataValue(key, value);
                 const displayKey = formatMetadataKey(key);
 
@@ -377,10 +468,29 @@ const MetadataViewer: React.FC = () => {
                   </div>
                 );
               })}
-            </div>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Map Dialog */}
+      <Dialog open={showMapDialog} onOpenChange={setShowMapDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>📍 Photo Location</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            {gpsData && (
+              <InteractiveMap
+                latitude={gpsData.latitude}
+                longitude={gpsData.longitude}
+                title={`Photo Location (${gpsData.latitude.toFixed(
+                  6
+                )}, ${gpsData.longitude.toFixed(6)})`}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
