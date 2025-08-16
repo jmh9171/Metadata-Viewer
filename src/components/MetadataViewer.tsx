@@ -271,29 +271,49 @@ const MetadataViewer: React.FC = () => {
   const categories = metadata ? categorizeMetadata(metadata) : [];
 
   return (
-    <div className="metadata-viewer">
-      <div className="upload-section">
-        <input
-          type="file"
-          accept="image/*,video/*"
-          onChange={handleFileChange}
-          className="file-input"
-          aria-label="Select an image or video file to view metadata"
-        />
+    <div className="w-full max-w-4xl">
+      <div className="my-8 flex justify-center">
+        <div className="relative inline-block cursor-pointer p-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl w-full max-w-lg bg-gray-50 dark:bg-gray-800 transition-all duration-300 hover:border-primary-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:-translate-y-1 hover:shadow-lg text-center">
+          <input
+            type="file"
+            accept="image/*,video/*"
+            onChange={handleFileChange}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            aria-label="Select an image or video file to view metadata"
+          />
+          <div className="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">
+            📁 Choose a file or drag it here
+          </div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Supports: JPG, PNG, GIF, MP4, MOV, AVI
+          </div>
+        </div>
       </div>
 
-      {isLoading && <div className="loading">Processing file...</div>}
+      {isLoading && (
+        <div className="flex justify-center items-center py-8 text-gray-600 dark:text-gray-300">
+          Processing file...
+          <div className="ml-2 w-5 h-5 border-2 border-gray-300 border-t-primary-500 rounded-full animate-spin"></div>
+        </div>
+      )}
 
-      {error && <div className="error-message">{error}</div>}
+      {error && (
+        <div className="text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg my-4 p-4 font-medium flex items-center gap-2">
+          <span>⚠️</span>
+          {error}
+        </div>
+      )}
 
       {metadata && categories.length > 0 && (
-        <div className="metadata-display">
-          <h2>File Metadata</h2>
-          <div className="categories-grid">
+        <div className="text-left bg-white dark:bg-gray-800 p-8 rounded-2xl mt-8 border border-gray-200 dark:border-gray-700 shadow-sm animate-slide-in">
+          <h2 className="text-center mb-6 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            File Metadata
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {categories.map((category) => (
               <div
                 key={category.name}
-                className="category-card"
+                className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-6 cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-primary-500 text-center"
                 onClick={() => handleCategoryClick(category)}
                 role="button"
                 tabIndex={0}
@@ -305,9 +325,15 @@ const MetadataViewer: React.FC = () => {
                 }}
                 aria-label={`View ${category.name} metadata (${category.count} items)`}
               >
-                <h3>{category.name}</h3>
-                <div className="count">{category.count} items</div>
-                <div className="preview">{category.preview}</div>
+                <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {category.name}
+                </h3>
+                <div className="text-primary-500 font-semibold text-xl mb-2">
+                  {category.count} items
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-300 opacity-80">
+                  {category.preview}
+                </div>
               </div>
             ))}
           </div>
@@ -315,27 +341,39 @@ const MetadataViewer: React.FC = () => {
       )}
 
       {selectedCategory && (
-        <div className="dialog-overlay" onClick={handleOverlayClick}>
-          <div className="dialog">
-            <div className="dialog-header">
-              <h3>{selectedCategory.name}</h3>
+        <div
+          className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4"
+          onClick={handleOverlayClick}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl animate-dialog-slide-in">
+            <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                {selectedCategory.name}
+              </h3>
               <button
-                className="dialog-close"
+                className="text-2xl text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 w-10 h-10 flex items-center justify-center"
                 onClick={closeDialog}
                 aria-label="Close dialog"
               >
                 ×
               </button>
             </div>
-            <div className="dialog-content">
+            <div className="space-y-4">
               {Object.entries(selectedCategory.items).map(([key, value]) => {
                 const displayValue = formatMetadataValue(key, value);
                 const displayKey = formatMetadataKey(key);
 
                 return (
-                  <div key={key} className="dialog-item">
-                    <strong>{displayKey}</strong>
-                    <span>{displayValue}</span>
+                  <div
+                    key={key}
+                    className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
+                  >
+                    <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 opacity-80">
+                      {displayKey}
+                    </div>
+                    <div className="text-gray-900 dark:text-gray-100 text-base leading-relaxed break-words">
+                      {displayValue}
+                    </div>
                   </div>
                 );
               })}
