@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { saveAs } from "file-saver";
 import React, { useState } from "react";
@@ -50,6 +51,7 @@ const MetadataViewer: React.FC = () => {
   );
   const [showMapDialog, setShowMapDialog] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
 
   const fileBaseInfo = (file: File) => ({
     name: file.name,
@@ -193,9 +195,6 @@ const MetadataViewer: React.FC = () => {
             console.log("EXIF data extracted:", tags);
 
             const gps = extractGPSData(tags);
-            if (gps) {
-              // setGpsData(gps); // This line was removed as per the new_code
-            }
 
             const exifData: Metadata = {};
             Object.entries(tags).forEach(([key, value]) => {
@@ -475,10 +474,39 @@ const MetadataViewer: React.FC = () => {
   return (
     <div className="p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        <Card className="mb-8 border-0 shadow-lg bg-background/80 dark:bg-background/80 backdrop-blur-sm">
+        {/* Dropzone */}
+        <Card className="mb-8 border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset,0_30px_60px_-30px_rgba(0,0,0,0.6)] rounded-2xl">
           <CardContent className="p-8">
             <div className="flex justify-center">
-              <div className="relative inline-block cursor-pointer p-8 border-2 border-dashed border-border dark:border-border rounded-2xl w-full max-w-lg bg-muted/20 dark:bg-muted/20 transition-all duration-300 hover:border-primary-500 hover:bg-muted/40 dark:hover:bg-muted/40 hover:-translate-y-1 hover:shadow-lg text-center">
+              <div
+                className={`relative inline-block cursor-pointer p-8 rounded-2xl w-full max-w-xl transition-all duration-300 text-center border-2 border-dashed
+                ${
+                  isDragOver
+                    ? "border-emerald-400/70 bg-emerald-500/10"
+                    : "border-blue-300/40 bg-blue-500/5"
+                }
+                hover:border-blue-300 hover:bg-blue-500/10 hover:-translate-y-0.5 hover:shadow-lg`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(false);
+                  const files = e.dataTransfer.files;
+                  if (files.length > 0) {
+                    handleFileChange({ target: { files } } as any);
+                  }
+                }}
+              >
+                <span className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-white/10" />
+                {isDragOver && (
+                  <span className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-400/10 via-cyan-400/10 to-blue-400/10 blur" />
+                )}
                 <input
                   type="file"
                   accept="image/*,video/*"
@@ -487,10 +515,10 @@ const MetadataViewer: React.FC = () => {
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   aria-label="Select image or video files to view metadata"
                 />
-                <div className="text-lg font-medium mb-2 text-slate-900 dark:text-slate-100">
+                <div className="text-lg md:text-xl font-medium mb-2 text-slate-100">
                   📁 Choose files or drag them here
                 </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">
+                <div className="text-sm text-slate-300/80">
                   Supports: JPG, PNG, GIF, MP4, MOV, AVI (Multiple files)
                 </div>
               </div>
@@ -498,21 +526,23 @@ const MetadataViewer: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Loading */}
         {isLoading && (
-          <Card className="mb-8 border-0 shadow-lg bg-background/80 dark:bg-background/80 backdrop-blur-sm">
+          <Card className="mb-8 border border-white/10 bg-slate-900/40 backdrop-blur-md rounded-2xl">
             <CardContent className="p-8 flex justify-center items-center">
-              <div className="flex items-center text-slate-600 dark:text-slate-300">
+              <div className="flex items-center text-slate-300">
                 Processing files...
-                <div className="ml-2 w-5 h-5 border-2 border-slate-300 border-t-primary-500 rounded-full animate-spin"></div>
+                <div className="ml-3 w-5 h-5 border-2 border-slate-400/50 border-t-transparent rounded-full animate-spin" />
               </div>
             </CardContent>
           </Card>
         )}
 
+        {/* Error */}
         {error && (
-          <Card className="mb-8 border-0 shadow-lg bg-red-50/80 dark:bg-red-900/20 backdrop-blur-sm">
+          <Card className="mb-8 border border-red-500/20 bg-red-500/10 backdrop-blur-md rounded-2xl">
             <CardContent className="p-4">
-              <div className="text-red-500 font-medium flex items-center gap-2">
+              <div className="text-red-300 font-medium flex items-center gap-2">
                 <span>⚠️</span>
                 {error}
               </div>
@@ -520,13 +550,14 @@ const MetadataViewer: React.FC = () => {
           </Card>
         )}
 
+        {/* Toolbar */}
         {fileMetadataList.length > 0 && (
-          <Card className="mb-8 border-0 shadow-lg bg-background/80 dark:bg-background/80 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex flex-wrap gap-4 justify-center">
+          <Card className="mb-8 border border-white/10 bg-slate-900/40 backdrop-blur-md rounded-2xl">
+            <CardContent className="p-5">
+              <div className="flex flex-wrap gap-3 justify-center">
                 <Button
                   onClick={exportAllMetadataAsJson}
-                  className="bg-green-500 hover:bg-green-600"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   <span className="mr-2">💾</span>
                   Export All Metadata (JSON)
@@ -536,7 +567,7 @@ const MetadataViewer: React.FC = () => {
                   onClick={() =>
                     setViewMode(viewMode === "list" ? "grid" : "list")
                   }
-                  className="bg-blue-500 hover:bg-blue-600"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <span className="mr-2">
                     {viewMode === "list" ? "📱" : "📋"}
@@ -553,7 +584,7 @@ const MetadataViewer: React.FC = () => {
                     setSelectedFileIndex(null);
                     setShowMapDialog(false);
                   }}
-                  className="bg-gray-500 hover:bg-gray-600"
+                  className="bg-slate-600 hover:bg-slate-700 text-white"
                 >
                   <span className="mr-2">🗑️</span>
                   Clear All Files
@@ -563,9 +594,10 @@ const MetadataViewer: React.FC = () => {
           </Card>
         )}
 
+        {/* Files */}
         {fileMetadataList.length > 0 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 text-center">
+            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-center text-slate-100">
               Processed Files ({fileMetadataList.length})
             </h2>
 
@@ -584,20 +616,21 @@ const MetadataViewer: React.FC = () => {
                 return (
                   <Card
                     key={index}
-                    className={`border-0 shadow-lg bg-background/80 dark:bg-background/80 backdrop-blur-sm animate-slide-in ${
+                    className={`border border-white/10 bg-slate-900/40 backdrop-blur-md rounded-2xl shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset,0_30px_60px_-30px_rgba(0,0,0,0.6)] transition-transform duration-200 hover:-translate-y-0.5 ${
                       viewMode === "grid" ? "h-full" : ""
                     }`}
                   >
                     <CardHeader className={viewMode === "grid" ? "pb-2" : ""}>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-3">
                         <CardTitle
-                          className={`font-semibold text-slate-900 dark:text-slate-100 ${
-                            viewMode === "grid" ? "text-sm" : "text-xl"
+                          className={`font-semibold text-slate-100 truncate ${
+                            viewMode === "grid" ? "text-sm" : "text-lg"
                           }`}
+                          title={fileMetadata.file.name}
                         >
                           {fileMetadata.file.name}
                         </CardTitle>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 shrink-0">
                           {fileMetadata.error ? (
                             <Badge
                               variant="destructive"
@@ -608,7 +641,9 @@ const MetadataViewer: React.FC = () => {
                           ) : (
                             <Badge
                               variant="secondary"
-                              className={viewMode === "grid" ? "text-xs" : ""}
+                              className={`bg-white/10 text-slate-200 border-white/10 ${
+                                viewMode === "grid" ? "text-xs" : ""
+                              }`}
                             >
                               {formatFileSize(fileMetadata.file.size)}
                             </Badge>
@@ -616,7 +651,7 @@ const MetadataViewer: React.FC = () => {
                           {fileMetadata.gpsData && (
                             <Badge
                               variant="outline"
-                              className={`text-green-600 ${
+                              className={`border-emerald-400/40 text-emerald-300 ${
                                 viewMode === "grid" ? "text-xs" : ""
                               }`}
                             >
@@ -628,13 +663,13 @@ const MetadataViewer: React.FC = () => {
                     </CardHeader>
 
                     <CardContent className={viewMode === "grid" ? "p-4" : ""}>
-                      {/* Preview Section */}
+                      {/* Preview */}
                       {fileMetadata.previewUrl && (
                         <div
                           className={`${viewMode === "grid" ? "mb-4" : "mb-6"}`}
                         >
                           <div
-                            className={`relative w-full bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden ${
+                            className={`relative w-full rounded-xl overflow-hidden ring-1 ring-white/10 bg-slate-800/60 ${
                               viewMode === "grid" ? "h-32" : "h-48"
                             }`}
                           >
@@ -655,7 +690,7 @@ const MetadataViewer: React.FC = () => {
                                 muted
                                 onLoadedData={(e) => {
                                   const video = e.target as HTMLVideoElement;
-                                  video.currentTime = 1; // Seek to 1 second for thumbnail
+                                  video.currentTime = 1;
                                 }}
                                 onError={(e) => {
                                   const target = e.target as HTMLVideoElement;
@@ -669,7 +704,7 @@ const MetadataViewer: React.FC = () => {
                                 Your browser does not support the video tag.
                               </video>
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
+                              <div className="w-full h-full flex items-center justify-center text-slate-400">
                                 <div className="text-center">
                                   <div className="text-4xl mb-2">📄</div>
                                   <div className="text-sm">
@@ -678,25 +713,28 @@ const MetadataViewer: React.FC = () => {
                                 </div>
                               </div>
                             )}
+                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                           </div>
                         </div>
                       )}
 
+                      {/* Error or Content */}
                       {fileMetadata.error ? (
-                        <div className="text-red-500 font-medium flex items-center gap-2">
+                        <div className="text-red-300 font-medium flex items-center gap-2">
                           <span>⚠️</span>
                           {fileMetadata.error}
                         </div>
                       ) : (
                         <div>
+                          {/* GPS */}
                           {fileMetadata.gpsData && (
                             <div
-                              className={`p-4 bg-green-50 dark:bg-green-900/20 rounded-lg ${
+                              className={`p-4 rounded-xl ring-1 ring-emerald-400/20 bg-emerald-500/10 ${
                                 viewMode === "grid" ? "mb-3" : "mb-4"
                               }`}
                             >
-                              <div className="flex items-center justify-between">
-                                <div className="text-green-700 dark:text-green-300">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="text-emerald-200">
                                   <p
                                     className={`font-medium ${
                                       viewMode === "grid" ? "text-sm" : ""
@@ -727,7 +765,7 @@ const MetadataViewer: React.FC = () => {
                                     setSelectedFileIndex(index);
                                   }}
                                   size="sm"
-                                  className="bg-green-600 hover:bg-green-700"
+                                  className="bg-emerald-600 hover:bg-emerald-700"
                                 >
                                   <span className="mr-1">🗺️</span>
                                   {viewMode === "grid" ? "" : "View Map"}
@@ -736,10 +774,11 @@ const MetadataViewer: React.FC = () => {
                             </div>
                           )}
 
+                          {/* Categories */}
                           {categories.length > 0 && (
                             <div>
                               <h3
-                                className={`font-semibold text-slate-900 dark:text-slate-100 mb-4 ${
+                                className={`font-semibold text-slate-100 mb-4 ${
                                   viewMode === "grid" ? "text-sm" : "text-lg"
                                 }`}
                               >
@@ -748,7 +787,7 @@ const MetadataViewer: React.FC = () => {
                                   : "Metadata Categories"}
                               </h3>
                               <div
-                                className={`grid gap-2 ${
+                                className={`grid gap-3 ${
                                   viewMode === "grid"
                                     ? "grid-cols-1"
                                     : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
@@ -757,7 +796,7 @@ const MetadataViewer: React.FC = () => {
                                 {categories.map((category) => (
                                   <Card
                                     key={category.name}
-                                    className="cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-primary-500 border-border dark:border-border bg-card dark:bg-card"
+                                    className="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg border border-white/10 bg-slate-800/40 backdrop-blur rounded-xl"
                                     onClick={() =>
                                       handleCategoryClick(category, index)
                                     }
@@ -773,10 +812,10 @@ const MetadataViewer: React.FC = () => {
                                   >
                                     <CardHeader className="pb-2">
                                       <CardTitle
-                                        className={`text-center text-slate-900 dark:text-slate-100 ${
+                                        className={`text-center text-slate-100 ${
                                           viewMode === "grid"
                                             ? "text-xs"
-                                            : "text-lg"
+                                            : "text-base"
                                         }`}
                                       >
                                         {category.name}
@@ -785,14 +824,14 @@ const MetadataViewer: React.FC = () => {
                                     <CardContent className="text-center">
                                       <Badge
                                         variant="secondary"
-                                        className={`mb-2 ${
+                                        className={`mb-2 bg-white/10 text-slate-200 border-white/10 ${
                                           viewMode === "grid" ? "text-xs" : ""
                                         }`}
                                       >
                                         {category.count} items
                                       </Badge>
                                       <div
-                                        className={`text-slate-600 dark:text-slate-300 opacity-80 ${
+                                        className={`text-slate-300/90 line-clamp-2 ${
                                           viewMode === "grid"
                                             ? "text-xs"
                                             : "text-sm"
@@ -807,15 +846,15 @@ const MetadataViewer: React.FC = () => {
                             </div>
                           )}
 
-                          {/* Individual File Actions */}
+                          {/* Actions */}
                           {!fileMetadata.error && (
                             <div
-                              className={`mt-4 pt-4 border-t border-border ${
+                              className={`mt-4 pt-4 border-t border-white/10 ${
                                 viewMode === "grid" ? "space-y-2" : "space-y-3"
                               }`}
                             >
                               <h4
-                                className={`font-medium text-slate-900 dark:text-slate-100 ${
+                                className={`font-medium text-slate-100 ${
                                   viewMode === "grid" ? "text-sm" : "text-base"
                                 }`}
                               >
@@ -831,7 +870,7 @@ const MetadataViewer: React.FC = () => {
                                     exportIndividualMetadataAsJson(fileMetadata)
                                   }
                                   size={viewMode === "grid" ? "sm" : "default"}
-                                  className="bg-green-500 hover:bg-green-600 text-white"
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
                                 >
                                   <span className="mr-1">💾</span>
                                   {viewMode === "grid" ? "JSON" : "Export JSON"}
@@ -841,7 +880,7 @@ const MetadataViewer: React.FC = () => {
                                     removeMetadata(fileMetadata.file)
                                   }
                                   size={viewMode === "grid" ? "sm" : "default"}
-                                  className="bg-red-500 hover:bg-red-600 text-white"
+                                  className="bg-rose-600 hover:bg-rose-700 text-white"
                                 >
                                   <span className="mr-1">🧹</span>
                                   {viewMode === "grid"
@@ -861,6 +900,7 @@ const MetadataViewer: React.FC = () => {
           </div>
         )}
 
+        {/* Category Dialog */}
         <Dialog
           open={!!selectedCategory && selectedFileIndex !== null}
           onOpenChange={() => {
@@ -868,26 +908,29 @@ const MetadataViewer: React.FC = () => {
             setSelectedFileIndex(null);
           }}
         >
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto border border-white/10 bg-slate-900/80 backdrop-blur-md rounded-2xl">
             <DialogHeader>
-              <DialogTitle>
-                {selectedCategory?.name} -{" "}
+              <DialogTitle className="text-slate-100">
+                {selectedCategory?.name} —{" "}
                 {fileMetadataList[selectedFileIndex!]?.file.name}
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {selectedCategory?.items &&
                 Object.entries(selectedCategory.items).map(([key, value]) => {
                   const displayValue = formatMetadataValue(key, value);
                   const displayKey = formatMetadataKey(key);
 
                   return (
-                    <Card key={key}>
+                    <Card
+                      key={key}
+                      className="border border-white/10 bg-slate-800/40 backdrop-blur rounded-xl"
+                    >
                       <CardContent className="p-4">
-                        <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1 opacity-80">
+                        <div className="text-[10px] font-semibold text-slate-300/70 uppercase tracking-wide mb-1">
                           {displayKey}
                         </div>
-                        <div className="text-slate-900 dark:text-slate-100 text-base leading-relaxed break-words">
+                        <div className="text-slate-100 text-sm leading-relaxed break-words whitespace-pre-wrap">
                           {displayValue}
                         </div>
                       </CardContent>
@@ -898,6 +941,7 @@ const MetadataViewer: React.FC = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Map Dialog */}
         <Dialog
           open={showMapDialog && selectedFileIndex !== null}
           onOpenChange={(open) => {
@@ -907,14 +951,14 @@ const MetadataViewer: React.FC = () => {
             }
           }}
         >
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden border border-white/10 bg-slate-900/80 backdrop-blur-md rounded-2xl">
             <DialogHeader>
-              <DialogTitle>
-                📍 Photo Location -{" "}
+              <DialogTitle className="text-slate-100">
+                📍 Photo Location —{" "}
                 {fileMetadataList[selectedFileIndex!]?.file.name}
               </DialogTitle>
             </DialogHeader>
-            <div className="mt-4">
+            <div className="mt-4 rounded-xl overflow-hidden ring-1 ring-white/10">
               {fileMetadataList[selectedFileIndex!]?.gpsData && (
                 <InteractiveMap
                   latitude={
